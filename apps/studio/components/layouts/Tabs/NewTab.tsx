@@ -74,7 +74,9 @@ export function NewTab() {
    * - `false`: user not yet bucketed or not targeted for experiment
    * - `undefined`: PostHog still loading
    */
-  const tableQuickstartVariant = usePHFlag<QuickstartVariant | false | undefined>(TABLE_QUICKSTART_FLAG)
+  const tableQuickstartVariant = usePHFlag<QuickstartVariant | false | undefined>(
+    TABLE_QUICKSTART_FLAG
+  )
 
   const isRecentProject = useMemo(() => {
     if (!project?.inserted_at) return false

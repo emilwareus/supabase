@@ -36,11 +36,22 @@ const ResponseSchema = z.object({
 
 type SchemaStreamResult = ReturnType<typeof streamObject<typeof ResponseSchema>>
 
-const handler = async (req: NextApiRequest, res: NextApiResponse) => {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: { message: `Method ${req.method} Not Allowed` } })
-  }
+async function handler(req: NextApiRequest, res: NextApiResponse) {
+  const { method } = req
 
+  switch (method) {
+    case 'POST':
+      return handlePost(req, res)
+    default:
+      res.setHeader('Allow', ['POST'])
+      res.status(405).json({
+        data: null,
+        error: { message: `Method ${method} Not Allowed` },
+      })
+  }
+}
+
+async function handlePost(req: NextApiRequest, res: NextApiResponse) {
   const { model, providerOptions } = await getModel({
     provider: 'bedrock',
     model: 'openai.gpt-oss-120b-1:0',

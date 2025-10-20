@@ -1,3 +1,4 @@
+import { merge } from 'lodash'
 import { constructHeaders } from 'data/fetchers'
 import { BASE_PATH } from 'lib/constants'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -120,53 +121,6 @@ const convertPartialSchemaToTableSuggestions = (schema: PartialSchema): TableSug
     .filter(isNotNull)
 }
 
-const mergeDeep = (
-  target: Record<string, any>,
-  source: Record<string, any>
-): Record<string, any> => {
-  const output = { ...target }
-
-  Object.entries(source).forEach(([key, value]) => {
-    if (value === undefined) return
-
-    if (Array.isArray(value)) {
-      const existingArray = Array.isArray(target[key]) ? (target[key] as Array<any>) : []
-      const merged = value.map((item, index) => {
-        if (item === null || item === undefined) {
-          return existingArray[index]
-        }
-
-        if (typeof item === 'object' && !Array.isArray(item)) {
-          const existing = existingArray[index]
-          return mergeDeep((existing as Record<string, any>) ?? {}, item as Record<string, any>)
-        }
-
-        return item
-      })
-
-      if (existingArray.length > merged.length) {
-        merged.push(...existingArray.slice(merged.length))
-      }
-
-      output[key] = merged
-      return
-    }
-
-    if (typeof value === 'object' && value !== null) {
-      const existing =
-        typeof target[key] === 'object' && target[key] !== null
-          ? (target[key] as Record<string, any>)
-          : {}
-      output[key] = mergeDeep(existing, value as Record<string, any>)
-      return
-    }
-
-    output[key] = value
-  })
-
-  return output
-}
-
 const parseSseEvent = (raw: string) => {
   const trimmed = raw.trim()
   if (!trimmed) return null
@@ -244,7 +198,6 @@ export const useAITableGeneration = () => {
       const response = await fetch(`${BASE_PATH}/api/ai/table-quickstart/generate-schemas`, {
         method: 'POST',
         headers,
-        credentials: 'include',
         body: JSON.stringify({ prompt }),
         signal: abortController.signal,
       })
@@ -282,7 +235,7 @@ export const useAITableGeneration = () => {
             const partial = safeJsonParse<Record<string, any>>(event.data)
             if (!partial) return
 
-            latestPartial = mergeDeep(latestPartial, partial)
+            latestPartial = merge({}, latestPartial, partial)
             const partialSuggestions = convertPartialSchemaToTableSuggestions(
               latestPartial as PartialSchema
             )
