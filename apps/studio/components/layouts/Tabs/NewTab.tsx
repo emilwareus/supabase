@@ -36,7 +36,12 @@ import { useEditorType } from '../editors/EditorsLayout.hooks'
 import { ActionCard } from './ActionCard'
 import { RecentItems } from './RecentItems'
 
+/**
+ * Projects created within this threshold are considered "new" and eligible for quickstart widgets.
+ * This aligns with the onboarding window where users are most likely to benefit from templates.
+ */
 const NEW_PROJECT_THRESHOLD_DAYS = 7
+const TABLE_QUICKSTART_FLAG = 'tableQuickstart'
 
 export function NewTab() {
   const router = useRouter()
@@ -69,7 +74,7 @@ export function NewTab() {
    * - `false`: user not yet bucketed or not targeted for experiment
    * - `undefined`: PostHog still loading
    */
-  const tableQuickstartVariant = usePHFlag<QuickstartVariant | false | undefined>('tableQuickstart')
+  const tableQuickstartVariant = usePHFlag<QuickstartVariant | false | undefined>(TABLE_QUICKSTART_FLAG)
 
   const isRecentProject = useMemo(() => {
     if (!project?.inserted_at) return false

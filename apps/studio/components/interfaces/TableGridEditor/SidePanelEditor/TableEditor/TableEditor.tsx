@@ -256,7 +256,7 @@ export const TableEditor = ({
 
   useEffect(() => {
     if (isSuccessForeignKeyMeta) setFkRelations(formatForeignKeys(foreignKeys))
-  }, [isSuccessForeignKeyMeta])
+  }, [isSuccessForeignKeyMeta, foreignKeys])
 
   useEffect(() => {
     if (importContent && !isEmpty(importContent)) {
