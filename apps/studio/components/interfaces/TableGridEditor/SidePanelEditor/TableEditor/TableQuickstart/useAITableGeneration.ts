@@ -121,30 +121,6 @@ const convertPartialSchemaToTableSuggestions = (schema: PartialSchema): TableSug
     .filter(isNotNull)
 }
 
-const parseSseEvent = (raw: string) => {
-  const trimmed = raw.trim()
-  if (!trimmed) return null
-
-  const lines = trimmed.split(/\r?\n/)
-  let event = 'message'
-  const dataParts: string[] = []
-
-  for (const line of lines) {
-    if (line.startsWith('event:')) {
-      event = line.slice(6).trim()
-    } else if (line.startsWith('data:')) {
-      dataParts.push(line.slice(5).trim())
-    }
-  }
-
-  if (dataParts.length === 0) return null
-
-  return {
-    event,
-    data: dataParts.join('\n'),
-  }
-}
-
 const safeJsonParse = <T>(input: string): T | null => {
   try {
     return JSON.parse(input) as T
@@ -193,7 +169,6 @@ export const useAITableGeneration = () => {
     try {
       const headers = await constructHeaders()
       headers.set('Content-Type', 'application/json')
-      headers.set('Accept', 'text/event-stream')
 
       const response = await fetch(`${BASE_PATH}/api/ai/table-quickstart/generate-schemas`, {
         method: 'POST',
@@ -218,109 +193,49 @@ export const useAITableGeneration = () => {
         return []
       }
 
-      const contentType = response.headers.get('content-type') ?? ''
-
-      if (contentType.includes('text/event-stream') && response.body) {
-        const reader = response.body.getReader()
-        const decoder = new TextDecoder()
-        let buffer = ''
-        let latestPartial: Record<string, any> = {}
-        let finalTables: TableSuggestion[] = []
-
-        const handleEvent = (rawEvent: string) => {
-          const event = parseSseEvent(rawEvent)
-          if (!event) return
-
-          if (event.event === 'partial') {
-            const partial = safeJsonParse<Record<string, any>>(event.data)
-            if (!partial) return
-
-            latestPartial = merge({}, latestPartial, partial)
-            const partialSuggestions = convertPartialSchemaToTableSuggestions(
-              latestPartial as PartialSchema
-            )
-
-            if (isMountedRef.current) {
-              setTables(partialSuggestions)
-            }
-            return
-          }
-
-          if (event.event === 'complete') {
-            const schemaPayload = safeJsonParse<AIGeneratedSchema>(event.data)
-            if (!schemaPayload) return
-
-            finalTables = convertAISchemaToTableSuggestions(schemaPayload)
-            latestPartial = schemaPayload as unknown as Record<string, any>
-
-            if (isMountedRef.current) {
-              setTables(finalTables)
-              setError(null)
-            }
-            return
-          }
-
-          if (event.event === 'error') {
-            const errorPayload = safeJsonParse<{ message?: string }>(event.data)
-            throw new Error(
-              errorPayload?.message ??
-                'Something went wrong while streaming the response. Please try again.'
-            )
-          }
-        }
-
-        const flushBuffer = () => {
-          let boundary = buffer.indexOf('\n\n')
-          while (boundary !== -1) {
-            const rawEvent = buffer.slice(0, boundary)
-            buffer = buffer.slice(boundary + 2)
-            handleEvent(rawEvent)
-            boundary = buffer.indexOf('\n\n')
-          }
-        }
-
-        try {
-          while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-
-            buffer += decoder.decode(value, { stream: true })
-            flushBuffer()
-          }
-
-          buffer += decoder.decode()
-          flushBuffer()
-
-          const trailingEvent = parseSseEvent(buffer)
-          if (trailingEvent) {
-            handleEvent(buffer)
-            buffer = ''
-          }
-        } finally {
-          reader.releaseLock()
-        }
-
-        if (finalTables.length === 0) {
-          finalTables = convertPartialSchemaToTableSuggestions(latestPartial as PartialSchema)
-        }
-
-        if (isMountedRef.current) {
-          setError(null)
-          setTables(finalTables)
-        }
-
-        return finalTables
+      if (!response.body) {
+        throw new Error('Response body is null')
       }
 
-      const data: AIGeneratedSchema = await response.json()
-      const tablesFromJson = convertAISchemaToTableSuggestions(data)
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let jsonBuffer = ''
+      let latestPartialSchema: PartialSchema = {}
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          jsonBuffer += decoder.decode(value, { stream: true })
+
+          const partialJson = safeJsonParse<PartialSchema>(jsonBuffer)
+          if (partialJson) {
+            latestPartialSchema = merge({}, latestPartialSchema, partialJson)
+            const partialSuggestions = convertPartialSchemaToTableSuggestions(latestPartialSchema)
+
+            if (isMountedRef.current && partialSuggestions.length > 0) {
+              setTables(partialSuggestions)
+            }
+          }
+        }
+      } finally {
+        reader.releaseLock()
+      }
+
+      jsonBuffer += decoder.decode()
+
+      const finalSchema = safeJsonParse<AIGeneratedSchema>(jsonBuffer)
+      const finalTables = finalSchema
+        ? convertAISchemaToTableSuggestions(finalSchema)
+        : convertPartialSchemaToTableSuggestions(latestPartialSchema)
 
       if (isMountedRef.current) {
         setError(null)
-        setTables(tablesFromJson)
+        setTables(finalTables)
       }
 
-      return tablesFromJson
+      return finalTables
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
         return []
