@@ -64,7 +64,7 @@ const convertAISchemaToTableSuggestions = (schema: AIGeneratedSchema): TableSugg
       unique: column.isUnique ?? undefined,
       default: column.defaultValue ?? undefined,
       description: getColumnDescription(column),
-      isPrimary: isPrimaryColumn(column) || undefined,
+      isPrimary: column.isPrimary || isIdColumn(column.name) || undefined,
     })),
     rationale: table.description,
     source: TableSource.AI,
@@ -102,7 +102,7 @@ const convertPartialSchemaToTableSuggestions = (schema: PartialSchema): TableSug
             unique: column.isUnique ?? undefined,
             default: column.defaultValue ?? undefined,
             description: getColumnDescription({ ...column, name: columnName }),
-            isPrimary: isPrimaryColumn({ ...column, name: columnName }) || undefined,
+            isPrimary: column.isPrimary || isIdColumn(columnName) || undefined,
           }
         })
         .filter(isNotNull)
@@ -153,7 +153,12 @@ export const useAITableGeneration = () => {
 
     if (prompt.length > LIMITS.MAX_PROMPT_LENGTH) {
       const message = `Your description is too long. Try shortening it to under ${LIMITS.MAX_PROMPT_LENGTH} characters.`
-      toast.error(message)
+      if (isMountedRef.current) {
+        setError(message)
+      }
+      toast.error('Description too long', {
+        description: message,
+      })
       return []
     }
 
@@ -179,11 +184,11 @@ export const useAITableGeneration = () => {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({
-          error: 'Something went wrong while generating your table schema. Please try again.',
+          error: 'Unable to generate table schema. Try again with a different description.',
         }))
         const errorMessage =
           errorData?.error ||
-          'Something went wrong while generating your table schema. Please try again.'
+          'Unable to generate table schema. Try again with a different description.'
         if (isMountedRef.current) {
           setError(errorMessage)
         }
@@ -242,7 +247,7 @@ export const useAITableGeneration = () => {
       }
 
       const message =
-        error instanceof Error ? error.message : 'Something went wrong. Please try again.'
+        error instanceof Error ? error.message : 'Unable to generate tables. Please try again.'
 
       if (isMountedRef.current) {
         setError(message)

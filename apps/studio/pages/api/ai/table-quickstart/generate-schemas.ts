@@ -59,8 +59,7 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
   if (modelResult.error || !modelResult.model) {
     return res.status(500).json({
       error:
-        modelResult.error?.message ||
-        'The AI service is temporarily unavailable. Please try again in a moment.',
+        modelResult.error?.message || 'AI service temporarily unavailable. Try again in a moment.',
     })
   }
 
@@ -69,12 +68,12 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
   const { prompt } = req.body
 
   if (!prompt) {
-    return res.status(400).json({ error: 'Please provide a description of your app.' })
+    return res.status(400).json({ error: 'Please provide a description of your app' })
   }
 
   if (typeof prompt !== 'string' || prompt.length > LIMITS.MAX_PROMPT_LENGTH) {
     return res.status(400).json({
-      error: `Your description is too long. Please keep it under ${LIMITS.MAX_PROMPT_LENGTH} characters.`,
+      error: `Description too long. Keep it under ${LIMITS.MAX_PROMPT_LENGTH} characters.`,
     })
   }
 
@@ -113,14 +112,13 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
     if (error instanceof Error) {
       if (error.message.includes('context_length') || error.message.includes('too long')) {
         return res.status(400).json({
-          error:
-            'Your description is too long. Try using fewer words to describe your application.',
+          error: 'Description too complex. Try using fewer words.',
         })
       }
     }
 
     return res.status(500).json({
-      error: 'Unable to generate table schema. Please try again or use a different description.',
+      error: 'Unable to generate schema. Try a different description.',
     })
   }
 }
