@@ -1,4 +1,4 @@
-import { constructHeaders } from 'data/fetchers'
+import { constructHeaders, fetchHandler } from 'data/fetchers'
 import { BASE_PATH } from 'lib/constants'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
@@ -176,7 +176,7 @@ export const useAITableGeneration = () => {
       const headers = await constructHeaders()
       headers.set('Content-Type', 'application/json')
 
-      const response = await fetch(`${BASE_PATH}/api/ai/table-quickstart/generate-schemas`, {
+      const response = await fetchHandler(`${BASE_PATH}/api/ai/table-quickstart/generate-schemas`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ prompt }),
