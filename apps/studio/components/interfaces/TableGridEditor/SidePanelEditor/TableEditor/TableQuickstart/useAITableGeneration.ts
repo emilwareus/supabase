@@ -1,4 +1,3 @@
-import { merge } from 'lodash'
 import { constructHeaders } from 'data/fetchers'
 import { BASE_PATH } from 'lib/constants'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -14,6 +13,8 @@ type PartialTable = Partial<AIGeneratedSchema['tables'][number]> & {
 type PartialSchema = Partial<AIGeneratedSchema> & {
   tables?: PartialTable[]
 }
+
+const MAX_BUFFER_SIZE = 50 * 1024 // 50KB limit for streaming responses
 
 const isNotNull = <T>(value: T | null | undefined): value is T => value != null
 
@@ -214,9 +215,13 @@ export const useAITableGeneration = () => {
 
           jsonBuffer += decoder.decode(value, { stream: true })
 
+          if (jsonBuffer.length > MAX_BUFFER_SIZE) {
+            throw new Error('Response too large')
+          }
+
           const partialJson = safeJsonParse<PartialSchema>(jsonBuffer)
           if (partialJson) {
-            latestPartialSchema = merge({}, latestPartialSchema, partialJson)
+            Object.assign(latestPartialSchema, partialJson)
             const partialSuggestions = convertPartialSchemaToTableSuggestions(latestPartialSchema)
 
             if (isMountedRef.current && partialSuggestions.length > 0) {
