@@ -36,10 +36,6 @@ import { useEditorType } from '../editors/EditorsLayout.hooks'
 import { ActionCard } from './ActionCard'
 import { RecentItems } from './RecentItems'
 
-/**
- * Projects created within this threshold are considered "new" and eligible for quickstart widgets.
- * This aligns with the onboarding window where users are most likely to benefit from templates.
- */
 const NEW_PROJECT_THRESHOLD_DAYS = 7
 const TABLE_QUICKSTART_FLAG = 'tableQuickstart'
 
